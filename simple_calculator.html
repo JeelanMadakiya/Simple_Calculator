@@ -1,0 +1,265 @@
+<!-- Simple Calculator: single-file HTML/CSS/JS
+     Features:
+     - Responsive design
+     - Click & keyboard input
+     - Clear, delete, parentheses, decimal support
+     - Basic safety check before evaluating expressions (only digits, + - * / % . ( ) )
+
+     Save this as `simple-calculator.html` and open in your browser.
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Calculator</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#7c5cff;
+      --muted:#94a3b8;
+      --btn:#111827;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      background: radial-gradient(1000px 600px at 10% 10%, rgba(124,92,255,0.12), transparent 6%),
+                  radial-gradient(800px 500px at 90% 90%, rgba(0,210,255,0.04), transparent 6%),
+                  var(--bg);
+      color:#e6eef8;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+
+    .calculator{
+      width:100%;
+      max-width:420px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:18px;
+      padding:20px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.7), inset 0 1px 0 rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.03);
+    }
+
+    .display{
+      background:var(--glass);
+      border-radius:12px;
+      padding:14px;
+      text-align:right;
+      margin-bottom:14px;
+      min-height:72px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+
+    .display .prev{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1;
+      opacity:0.9;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .display .curr{
+      font-size:28px;
+      font-weight:600;
+      letter-spacing:0.6px;
+      margin-top:6px;
+      word-break:break-all;
+    }
+
+    .keys{
+      display:grid;
+      grid-template-columns: repeat(4,1fr);
+      gap:12px;
+    }
+
+    button.key{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.03);
+      padding:16px;
+      font-size:18px;
+      border-radius:10px;
+      cursor:pointer;
+      user-select:none;
+      transition:transform .06s ease, box-shadow .06s ease;
+      min-height:56px;
+      color:var(--muted);
+    }
+
+    button.key:active{transform:translateY(2px)}
+
+    button.key.op{
+      color:#0b1220;
+      background: linear-gradient(180deg, var(--accent), #5b3bff);
+      font-weight:600;
+    }
+
+    button.key.equal{
+      grid-column: span 2;
+      background: linear-gradient(90deg, #00c6ff, #7c5cff);
+      color:#071024;
+      font-weight:700;
+      font-size:18px;
+    }
+
+    button.key.clear{
+      background:transparent;
+      color:#ff6b6b;
+      border:1px solid rgba(255,107,107,0.12);
+    }
+
+    @media (max-width:420px){
+      .calculator{padding:12px}
+      .display .curr{font-size:22px}
+      button.key{padding:12px;font-size:16px;min-height:48px}
+    }
+
+    .hint{
+      text-align:center;
+      margin-top:12px;
+      color:var(--muted);
+      font-size:13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator" role="application" aria-label="Simple Calculator">
+    <div class="display" id="display">
+      <div class="prev" id="prev"></div>
+      <div class="curr" id="curr">0</div>
+    </div>
+
+    <div class="keys" id="keys">
+      <button class="key clear" data-action="clear">AC</button>
+      <button class="key" data-action="delete">DEL</button>
+      <button class="key" data-value="%">%</button>
+      <button class="key op" data-value="/">÷</button>
+
+      <button class="key" data-value="7">7</button>
+      <button class="key" data-value="8">8</button>
+      <button class="key" data-value="9">9</button>
+      <button class="key op" data-value="*">×</button>
+
+      <button class="key" data-value="4">4</button>
+      <button class="key" data-value="5">5</button>
+      <button class="key" data-value="6">6</button>
+      <button class="key op" data-value="-">−</button>
+
+      <button class="key" data-value="1">1</button>
+      <button class="key" data-value="2">2</button>
+      <button class="key" data-value="3">3</button>
+      <button class="key op" data-value="+">+</button>
+
+      <button class="key" data-value="0" style="grid-column: span 1">0</button>
+      <button class="key" data-value=".">.</button>
+      <button class="key equal" data-action="equals">=</button>
+    </div>
+
+    <div class="hint">Tip: keyboard works — numbers, + - * /, Enter, Backspace</div>
+  </div>
+
+  <script>
+    // Simple safe evaluator: allow only digits, operators, parentheses, dot and percent
+    const allowed = /^[0-9+\-*/().%\s]+$/;
+
+    const prevEl = document.getElementById('prev');
+    const currEl = document.getElementById('curr');
+    const keys = document.getElementById('keys');
+
+    let current = '';
+    let previous = '';
+
+    function updateDisplay(){
+      currEl.textContent = current || '0';
+      prevEl.textContent = previous;
+    }
+
+    function append(value){
+      // prevent multiple dots in a number segment
+      if(value === '.'){
+        const parts = current.split(/[^0-9.]/);
+        const last = parts[parts.length-1] || '';
+        if(last.includes('.')) return;
+      }
+      current += value;
+      updateDisplay();
+    }
+
+    function clearAll(){ current = ''; previous = ''; updateDisplay(); }
+
+    function deleteLast(){ current = current.slice(0,-1); updateDisplay(); }
+
+    function compute(){
+      if(!current) return;
+      const expr = current.replace(/×/g,'*').replace(/÷/g,'/').trim();
+      if(!allowed.test(expr)){
+        previous = 'Error: invalid characters';
+        current = '';
+        updateDisplay();
+        return;
+      }
+
+      // Convert percentage: replace occurrences like '50%' -> '(50/100)'
+      // Also handle chained percentages like '50%+25%' -> '(50/100)+(25/100)'
+      const exprWithPercent = expr.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+
+      try{
+        // Use Function to evaluate — safer than eval in this context because we validated characters
+        const result = Function('return ('+exprWithPercent+')')();
+        if(typeof result === 'number' && isFinite(result)){
+          previous = current + ' =';
+          // Trim long decimals sensibly
+          current = Number.isInteger(result) ? String(result) : String(parseFloat(result.toFixed(12))).replace(/\.0+$/,'');
+        } else {
+          previous = 'Error'; current = '';
+        }
+      } catch(e){
+        previous = 'Error'; current = '';
+      }
+      updateDisplay();
+    }
+
+    // Click handling
+    keys.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button');
+      if(!btn) return;
+      const action = btn.dataset.action;
+      const value = btn.dataset.value;
+
+      if(action === 'clear') clearAll();
+      else if(action === 'delete') deleteLast();
+      else if(action === 'equals') compute();
+      else if(value) append(value);
+    });
+
+    // Keyboard handling
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault(); compute(); return;
+      }
+      if(e.key === 'Backspace'){
+        e.preventDefault(); deleteLast(); return;
+      }
+      // allow digits, operators, parentheses, percent and dot
+      if(/^[0-9+\-*/().%]$/.test(e.key)){
+        e.preventDefault(); append(e.key);
+      }
+      // allow Ctrl+C / Ctrl+V normal behavior
+    });
+
+    // initialize
+    updateDisplay();
+  </script>
+</body>
+</html>
